@@ -118,88 +118,81 @@
     const cardsContainer = document.getElementById('cards');
 
     fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-      // Preview image
-      preview.src = URL.createObjectURL(file);
-      preview.style.display = 'block';
+  // Preview image
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
 
-      loader.style.display = 'block';
-      progressText.innerText = "Uploading to ImgBB...";
-      cardsContainer.innerHTML = "";
+  loader.style.display = 'block';
+  progressText.innerText = "Uploading to ImgBB...";
+  cardsContainer.innerHTML = "";
 
-      try {
-        const formData = new FormData();
-        formData.append("image", file);
+  try {
+    const formData = new FormData();
+    formData.append("image", file);
 
-        const imgbbRes = await fetch('https://api.imgbb.com/1/upload?key=caa9e987e52508e76795ed3edebc273a', {
-          method: 'POST',
-          body: formData
-        });
-        const imgbbData = await imgbbRes.json();
-        const imageUrl = imgbbData.data.url;
-
-        progressText.innerText = "Analyzing image with Groq AI...";
-
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer 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'
-          },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Give calories of each item in this image in this below JSON format only\n {items:[{item_name:name of item, total_calories:in gm, total_protien:in gm , toal_carbs: in gm ,toal_fats:in gm},...]}"
-                  },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: imageUrl
-                    }
-                  }
-                ]
-              }
-            ],
-            model: "llama-3.2-90b-vision-preview",
-            temperature: 1,
-            max_completion_tokens: 1024,
-            top_p: 1,
-            stream: false,
-            response_format: { type: "json_object" }
-          })
-        });
-
-        const groqData = await groqResponse.json();
-        const items = JSON.parse(groqData.choices[0].message.content).items;
-
-        progressText.innerText = `Found ${items.length} food item(s)!`;
-        loader.style.display = 'none';
-
-        items.forEach(item => {
-          const card = document.createElement('div');
-          card.className = "card";
-          card.innerHTML = `
-            <h3>${item.item_name}</h3>
-            <p><strong>Calories:</strong> ${item.total_calories} kcal</p>
-            <p><strong>Protein:</strong> ${item.total_protien} g</p>
-            <p><strong>Carbs:</strong> ${item.toal_carbs} g</p>
-            <p><strong>Fats:</strong> ${item.toal_fats} g</p>
-          `;
-          cardsContainer.appendChild(card);
-        });
-
-      } catch (err) {
-        loader.style.display = 'none';
-        progressText.innerText = "Error occurred. Please try again.";
-        console.error(err);
-      }
+    const imgbbRes = await fetch('https://api.imgbb.com/1/upload?key=caa9e987e52508e76795ed3edebc273a', {
+      method: 'POST',
+      body: formData
     });
+
+    const imgbbData = await imgbbRes.json();
+    const imageUrl = imgbbData.data.url;
+
+    progressText.innerText = "Analyzing image (mock AI)...";
+
+    // 🧠 Fake AI Response (simulate Groq result)
+    await new Promise(resolve => setTimeout(resolve, 1500)); // simulate delay
+
+    const items = [
+      {
+        item_name: "Puri",
+        total_calories: 300.5,
+        total_protien: 4.6,
+        toal_carbs: 54.6,
+        toal_fats: 12.2
+      },
+      {
+        item_name: "Pickled radish and carrot",
+        total_calories: 20,
+        total_protien: 0.48,
+        toal_carbs: 4.51,
+        toal_fats: 0.04
+      },
+      {
+        item_name: "Potato sabji",
+        total_calories: 200,
+        total_protien: 2.3,
+        toal_carbs: 36,
+        toal_fats: 10
+      }
+    ];
+
+    progressText.innerText = `Found ${items.length} item(s)!`;
+    loader.style.display = 'none';
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = "card";
+      card.innerHTML = `
+        <h3>${item.item_name}</h3>
+        <p><strong>Calories:</strong> ${item.total_calories} kcal</p>
+        <p><strong>Protein:</strong> ${item.total_protien} g</p>
+        <p><strong>Carbs:</strong> ${item.toal_carbs} g</p>
+        <p><strong>Fats:</strong> ${item.toal_fats} g</p>
+      `;
+      cardsContainer.appendChild(card);
+    });
+
+  } catch (err) {
+    loader.style.display = 'none';
+    progressText.innerText = "Error occurred. Please try again.";
+    console.error(err);
+  }
+});
+
   </script>
 </body>
 </html>
