@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calorie Snap App 🍱</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    body {
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background-color: #ff6b6b;
+      color: white;
+      padding: 1.5rem;
+      font-size: 1.6rem;
+    }
+    .container {
+      padding: 2rem;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    label.upload-btn {
+      background: #1dd1a1;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+    #preview {
+      max-width: 300px;
+      margin: 1rem auto;
+      border-radius: 10px;
+      display: none;
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #ff6b6b;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .progress-text {
+      margin-top: 10px;
+      font-size: 1.1rem;
+      color: #333;
+    }
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 2rem;
+      gap: 1rem;
+    }
+    .card {
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 15px;
+      padding: 1rem;
+      width: 250px;
+      text-align: left;
+      transition: transform 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+    }
+    .card h3 {
+      color: #ff6b6b;
+      margin-bottom: 0.5rem;
+    }
+    .card p {
+      margin: 0.2rem 0;
+      font-size: 0.95rem;
+    }
+
+    @media(max-width: 600px) {
+      .card {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>Calorie Snap 🍱</header>
+
+  <div class="container">
+    <label for="file" class="upload-btn">Upload Food Image</label>
+    <input type="file" id="file" accept="image/*"/>
+    <br/>
+    <img id="preview" src="#" />
+    <div class="loader" id="loader"></div>
+    <div class="progress-text" id="progressText"></div>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file');
+    const preview = document.getElementById('preview');
+    const loader = document.getElementById('loader');
+    const progressText = document.getElementById('progressText');
+    const cardsContainer = document.getElementById('cards');
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Preview image
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+
+      loader.style.display = 'block';
+      progressText.innerText = "Uploading to ImgBB...";
+      cardsContainer.innerHTML = "";
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const imgbbRes = await fetch('https://api.imgbb.com/1/upload?key=caa9e987e52508e76795ed3edebc273a', {
+          method: 'POST',
+          body: formData
+        });
+        const imgbbData = await imgbbRes.json();
+        const imageUrl = imgbbData.data.url;
+
+        progressText.innerText = "Analyzing image with Groq AI...";
+
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer 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'
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Give calories of each item in this image in this below JSON format only\n {items:[{item_name:name of item, total_calories:in gm, total_protien:in gm , toal_carbs: in gm ,toal_fats:in gm},...]}"
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: imageUrl
+                    }
+                  }
+                ]
+              }
+            ],
+            model: "llama-3.2-90b-vision-preview",
+            temperature: 1,
+            max_completion_tokens: 1024,
+            top_p: 1,
+            stream: false,
+            response_format: { type: "json_object" }
+          })
+        });
+
+        const groqData = await groqResponse.json();
+        const items = JSON.parse(groqData.choices[0].message.content).items;
+
+        progressText.innerText = `Found ${items.length} food item(s)!`;
+        loader.style.display = 'none';
+
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = "card";
+          card.innerHTML = `
+            <h3>${item.item_name}</h3>
+            <p><strong>Calories:</strong> ${item.total_calories} kcal</p>
+            <p><strong>Protein:</strong> ${item.total_protien} g</p>
+            <p><strong>Carbs:</strong> ${item.toal_carbs} g</p>
+            <p><strong>Fats:</strong> ${item.toal_fats} g</p>
+          `;
+          cardsContainer.appendChild(card);
+        });
+
+      } catch (err) {
+        loader.style.display = 'none';
+        progressText.innerText = "Error occurred. Please try again.";
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
